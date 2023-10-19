@@ -1,0 +1,362 @@
+/* =============================================================================
+*       #######################***#################%%%%%%%##
+*       #############********###############################
+*       ###########*******#########****#%%%%################
+*       ####*##*********####******###****#%%%########***####
+*       #*************##************###***+*#%##############
+*       #***********###***************##***++*%%%%##########
+*       #####******###**********++***#####**++*%%%%%%#######
+*       #####****####*********+++++**#####**+==*%%%%%%######
+*       ####*****%###*********+++++***####**+=--%@@%%%######
+*       ####****%%%#*#******++++++*+**###**+==-:+@@%%%%####%
+*       %%###**#%%#####******++===++***#**++==---%@%%%##%%%%
+*       %%######%%#######*****++===+***#*+===-::-*%%%%####%%
+*       %######%%%#######*****+++==+***#*+--==:::=%%%%%%%%%%
+*       %%#####%###########***+====++*##*+-----::-@%%%%%%%%%
+*       %%#####%%%###########**+++=+*####**+==---=@%%%%%%%##
+*       %%####*%%########************####**+=====*@%%%%%%%##
+*       %#####*%%###*=-----=**++++++**=:----:.-=-#@%%%%%%%%%
+*       ########%#*:=#%%%#*+:-***+**=:*#*++++-:.::%%%%%%%%%%
+*       ######*-++:%@@@%%%%#*+.**+*--##=++*###+-.+:#%%%%%%%%
+*       ######*.#:#%@@@@@@@%%#=:=--.**+*%@@@%@*-*.*:%%%%%%%%
+*       ######*::=%#%@@@@@@%@%%.*+=-##%@@@@%@+:-%.--#%%%%@@@
+*       #######*+-%%%#%%@@@@@@%.%#+:#@@@@@%+=:-+%.%%%%%%@@@@
+*       ########*.#%%%######%%==#*+:+%%%##*+--+#-*%%%%%%%@@@
+*       #########*:+%%%#####*--##*+#--*###*-=*+-*%%%%%%%%%%@
+*       ###########+-=*#**+--+#%#*+#%*=--::::-+%%%%%%%%%%%%%
+*       ############%#*+++*###%%%**#%##+-=-=#%%%%%%%%%%%%%%%
+*       %%%%%########%%%%%%%###*+**#*#+--==%@%%%%%%%%%%%%%%%
+*       %%%%%%########%%%%%%###*+=*#*++-:=%%%%%%%%%%%%%@%%%%
+*       %%%%%%%%#%%%%%%%%%%%##*****#*==--*@%%%%%%%%%%%%%%%%%
+*       %%%%%%%%%%%%%%%%%%%%%###*###+---+@@%%%%%%@@@@@@%%%%%
+*       ##%%%%%%%%%%%%%%%%%%%######*=+--@@@@%%%%@@@@@@@@@@@@
+*       ##%%%%%%%%%%%%%%%%%%%###**##+--*@@@@@%%%@@@@@@@@@@@@
+*       #%%%%%%%%%%%%%%%%%%%%###*+#*=-=%%%%%%%%%%@@@@@@@@@@@
+*       %%%%%%%%%%%%%%%%%%%#%#**+=*+-+*%%%%%%%%%%@@@@@@@@%%%
+*       %%%%%%%%%%%%%%%%%%%##%%###*-*%*%%%@@@@@@@@@@@@@@%%%%
+*       %%%%%%%%%%%%%%%%%%%##%%##%#+##+%%%%%%@@@@@@@@@@%%%%%
+*       %%%%%%%%%%%%%%%%%%##*#%####+#*-%%@@@%%%@@@@@@@@%%%%%
+*       %%%%%%%%%%%%%%%@%%##**%%%%**#*-+%%%%%%%%@@@%@@%%%%%%
+*       %%%%@@@%%%%%%%@%####*+###%**#*-=*%%%%%%%%@@@%%%@%%%%
+*       %%%@@@@@@%%%%%#**#%#*+***##***-+###%%%%%%%@@@@@@@%%%
+*       %%%@@@@@@%%#**+**##**+*++*#+**-=#****#%%%%@@@@@@@@%%
+*       %%@@@@@%##*******#***=+++**=+*+=*#*****##%%%@@%%%%%%
+*       %@@@%%#**************+++**+=*+#*###**+****#%%%%%%%%%
+*===============================================================================
+*
+* Autor: Weber Alves dos Santos (Pinablink)
+*                
+*/
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+#include "msp430g2553.h"  
+;----------------------------------------------------------------------------------------------
+#define         STATUS_ACK         0200H
+#define         ACK_ERROR           00EH
+#define         ACK_OK              001H
+#define         MSB_MEM_EEPROM       R14
+#define         LSB_MEM_EEPROM       R15
+#define         I2C_MEMO_ENDERECO  0202H
+#define         TAMANHO_MSG_EEPROM 0204H
+#define         MENSAGEM_EEPROM    0210H
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+          NAME                  MAIN  
+          PUBLIC                MAIN
+;----------------------------------------------------------------------------------------------
+          RSEG                  CSTACK                  
+          RSEG                  CODE 
+;----------------------------------------------------------------------------------------------          
+MENSAGEM  DB                    "Ola Humanos!!"
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+RESET:                          MOV            #SFE(CSTACK), SP
+MAIN:                           MOV.W          #WDTPW+WDTHOLD,&WDTCTL 
+;----------------------------------------------------------------------------------------------
+                                MOV.B          &CALBC1_1MHZ,&BCSCTL1
+                                MOV.B          &CALDCO_1MHZ,&DCOCTL    
+;----------------------------------------------------------------------------------------------                          
+                                CALL           #LIMPAR_REGISTRADORES
+                                CALL           #LIMPAR_MEMORIA_MCU_RAM
+;----------------------------------------------------------------------------------------------
+                                MOV.W          #0000DH,&TAMANHO_MSG_EEPROM    
+                                CALL           #INICIALIZAR_I2C
+                                NOP
+                                JMP             SESSAO_LER_DA_MEM
+;---------------------------------------------------------------------------------------------- 
+SESSAO_SALVAR_NA_MEM:           // INFORMA A POSIÇÃO DA MEMÓRIA I2C
+                                MOV.W          #00000H,&I2C_MEMO_ENDERECO
+                                CALL           #SALVAR_MENSAGEM_NA_MEMORIA
+                                JMP            RUN_APLICACAO
+;----------------------------------------------------------------------------------------------
+SESSAO_LER_DA_MEM:              MOV.W          #00000H,&I2C_MEMO_ENDERECO
+                                CALL           #LER_MENSAGEM_DA_MEMORIA
+                                NOP
+;----------------------------------------------------------------------------------------------
+RUN_APLICACAO:                  CMP.B          #ACK_ERROR,&STATUS_ACK
+                                JC             ERRO_RUN_
+                                JMP            CT_RUN_
+ERRO_RUN_:                      NOP                                
+CT_RUN_:                        JMP            $
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+LER_MENSAGEM_DA_MEMORIA
+;----------------------------------------------------------------------------------------------
+                                PUSH.W         R4
+                                PUSH.W         R5
+                                MOV.W          #00000H,R4
+                                MOV.W          &TAMANHO_MSG_EEPROM,R5
+LEITURA_BYTE:                   CMP.W          #00000H,R5
+                                JEQ            LEITURA_CONCLUIDA
+                                CALL           #I2C_MEMO_MSB_LSB
+                                CALL           #LER_DATA_BYTE
+                                INC.W          &I2C_MEMO_ENDERECO
+                                INC.W          R4
+                                DEC.W          R5
+                                JMP            LEITURA_BYTE             
+LEITURA_CONCLUIDA:              MOV.W          #00000H,MSB_MEM_EEPROM
+                                MOV.W          #00000H,LSB_MEM_EEPROM                                
+                                POP.W          R5
+                                POP.W          R4
+                                RET    
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+SALVAR_MENSAGEM_NA_MEMORIA
+;----------------------------------------------------------------------------------------------
+                                PUSH.W         R4
+                                PUSH.W         R5
+                                MOV.W          #0000DH,R5
+                                MOV.W          #MENSAGEM,R4
+SELECIONE_BYTE:                 CMP.W          #00000H,R5
+                                JEQ            MENSAGEM_SALVA
+                                MOV.B          @R4+,R10
+                                CALL           #I2C_MEMO_MSB_LSB
+                                CALL           #SALVAR_DADO_BYTE
+                                CALL           #AGUARDE_5MS
+                                CALL           #AGUARDE_5MS
+                                INC.W          &I2C_MEMO_ENDERECO
+                                DEC.W          R5
+                                JMP            SELECIONE_BYTE      
+MENSAGEM_SALVA:                 MOV.W          #00000H,MSB_MEM_EEPROM
+                                MOV.W          #00000H,LSB_MEM_EEPROM
+                                POP.W          R5
+                                POP.W          R4
+                                RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+LIMPAR_MEMORIA_MCU_RAM
+;----------------------------------------------------------------------------------------------
+                                PUSH.W         R4
+                                PUSH.W         R5
+                                MOV.W          #001F4H,R4
+                                MOV.W          #00000H,R5
+CONTINUE_LIMPEZA:               CMP.W          #00000H,R4
+                                JEQ            LIMPEZA_CONCLUIDA      
+                                MOV.B          #0FFH,0200H(R5)
+                                INC.W          R5
+                                DEC.W          R4
+                                JMP            CONTINUE_LIMPEZA
+LIMPEZA_CONCLUIDA:              POP.W          R5
+                                POP.W          R4
+                                RET 
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+LIMPAR_REGISTRADORES
+;----------------------------------------------------------------------------------------------
+                                MOV.W          #00000H,R4
+                                MOV.W          #00000H,R5
+                                MOV.W          #00000H,R6
+                                MOV.W          #00000H,R7
+                                MOV.W          #00000H,R8
+                                MOV.W          #00000H,R9
+                                MOV.W          #00000H,R10
+                                MOV.W          #00000H,R11
+                                MOV.W          #00000H,R12
+                                MOV.W          #00000H,R13
+                                MOV.W          #00000H,R14
+                                MOV.W          #00000H,R15
+                                RET
+;----------------------------------------------------------------------------------------------
+;         ÁREA DESTINADA A MANIPUALÇÃO DOS DADOS i2C
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+INICIALIZAR_I2C 
+;----------------------------------------------------------------------------------------------
+                                MOV.W          #00050H,&UCB0I2CSA
+                                MOV.B          #000H,&UCB0CTL0
+                                MOV.B          #000H,&UCB0CTL1
+                                BIS.B          #0C0H,&P1SEL  
+                                BIS.B          #0C0H,&P1SEL2 
+                                BIS.B          #UCSWRST,&UCB0CTL1
+                                BIS.B          #UCMST+UCMODE_3+UCSYNC,&UCB0CTL0
+                                MOV.B          #00AH,&UCB0BR0
+                                MOV.B          #000H,&UCB0BR1
+                                MOV.B          #080H,&UCB0CTL1
+                                RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+VERIFICA_ACK 
+;----------------------------------------------------------------------------------------------
+                                BIT.B          #008H,&UCB0STAT
+                                JNC            TRANSMICAO_OK
+                                ; CONFIGURA A CONDIÇÃO DE STOP PARA ENVIAR PARA O RECEPTOR I2C
+                                BIS.B          #UCTXSTP,&UCB0CTL1
+                                ; LIMPA A FLAG
+                                BIC.B          #UCNACKIFG,&UCB0STAT
+                                MOV.B          #ACK_ERROR,&STATUS_ACK
+                                JMP            SAIDA_AGORA
+TRANSMICAO_OK:                  MOV.B          #ACK_OK,&STATUS_ACK    
+SAIDA_AGORA:                    RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+SALVAR_DADO_BYTE
+;----------------------------------------------------------------------------------------------
+;==============================================================================================
+;  PROCESSAMENTO DOS DADOS PARA ENVIO A EEPROM I2C
+;==============================================================================================
+                                PUSH.W         R4
+                                PUSH.W         R5
+                                PUSH.W         R6
+                                PUSH.W         R7
+                                MOV.W          #00000H,R7
+                                ; ENVIA O START PARA O RECEPTOR I2C
+                                ; UCTR = 1, INDICA ESCRITA NO RECEPTOR I2C. UCTXSTT = 1, SINAL DE START LIGADO
+                                BIS.B          #UCTR+UCTXSTT,&UCB0CTL1
+CONTINUE_START:	                BIT.B          #002H,&UCB0CTL1
+                                JNC            OK_START
+                                BIT.B          #008H,&IFG2
+                                JNC            CONTINUE_START  
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+OK_START:                       MOV.W          PC,R7
+                                JMP            VER_RESPOSTA_RECEPTOR
+                                ; ENVIA O BYTE MAIS SIGNIFICATIVO DO ENDEREÇO DA MEM?RIA
+                                MOV.B          MSB_MEM_EEPROM,&UCB0TXBUF
+CONTINUE_VER_MSB:               BIT.B          #008H,&IFG2
+                                JC             OK_MSB_ENV
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+                                MOV.W          PC,R7
+                                JMP            VER_RESPOSTA_RECEPTOR
+                                JMP            CONTINUE_VER_MSB
+OK_MSB_ENV:                     NOP       
+                                ; ENVIA O BYTE MENOS SIGNIFICATIVO DO ENDEREÇO DA MEMÓRIA
+                                MOV.B          LSB_MEM_EEPROM,&UCB0TXBUF
+CONTINUE_VER_LSB:               BIT.B          #008H,&IFG2
+                                JC             OK_LSB_ENV
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+                                MOV.W          PC,R7
+                                JMP            VER_RESPOSTA_RECEPTOR
+                                JMP            CONTINUE_VER_LSB
+OK_LSB_ENV:                     NOP       
+                                ; ENVIA OS DADOS PARA O RECEPTOR I2C
+                                MOV.B          R10,&UCB0TXBUF
+CONTINUE_ENVIO:                 BIT.B          #008H,&IFG2
+                                JC             OK_DADO
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+                                MOV.W          PC,R7
+                                JMP            VER_RESPOSTA_RECEPTOR
+                                JMP            CONTINUE_ENVIO
+OK_DADO:                        NOP       
+                                JMP            SUCESSO_DADO_SALVO
+                                NOP
+VER_RESPOSTA_RECEPTOR:          CALL           #VERIFICA_ACK
+                                CMP.B          #ACK_ERROR,&STATUS_ACK
+                                JC             ERRO_ACK_
+                                ADD.W          #002H,R7
+                                MOV.W          R7,PC
+ERRO_ACK_:                      NOP
+                                JMP            FIM_SALVA_DADO_BYTE
+                                ; CONFIGURA A CONDIÇÃO DE STOP PARA ENVIAR PARA O RECEPTOR I2C
+SUCESSO_DADO_SALVO:             BIS.B          #UCTXSTP,&UCB0CTL1
+                                ; LIMPA A FLAG
+                                BIC.B          #UCNACKIFG,&UCB0STAT ; Limpa a flag
+FIM_SALVA_DADO_BYTE:            POP.W          R7
+                                POP.W          R6
+                                POP.W          R5
+                                POP.W          R4
+;==============================================================================================                          
+                                RET       
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+LER_DATA_BYTE
+;----------------------------------------------------------------------------------------------
+DUMMY_WR:                       NOP
+                                ; ENVIA O START PARA O RECEPTOR I2C
+                                ; UCTR = 1, INDICA ESCRITA NO RECEPTOR I2C. UCTXSTT = 1, SINAL DE START LIGADO
+                                BIS.B          #UCTR+UCTXSTT,&UCB0CTL1
+CONTINUE_DUMMY_WR_START:	BIT.B          #002H,&UCB0CTL1
+                                JNC            OK_SEND_DUMMY_WR_START
+                                BIT.B          #008H,&IFG2
+                                JNC            CONTINUE_DUMMY_WR_START                             
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+OK_SEND_DUMMY_WR_START:         MOV.W          PC,R7
+                                JMP            DUMMY_VER_RESP_ACK
+                                ; ENVIA O BYTE MAIS SIGNIFICATIVO DO ENDEREÇO DA MEMÓRIA
+                                MOV.B          MSB_MEM_EEPROM,&UCB0TXBUF
+DUMMY_WR_CONTINUE_VER_MSB:      BIT.B          #008H,&IFG2
+                                JC             DUMMY_OK_MSB_ENV
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+                                MOV.W          PC,R7
+                                JMP            DUMMY_VER_RESP_ACK
+                                JMP            DUMMY_WR_CONTINUE_VER_MSB
+DUMMY_OK_MSB_ENV:               NOP       
+                                ; ENVIA O BYTE MENOS SIGNIFICATIVO DO ENDEREÇO DA MEM?RIA
+                                MOV.B          LSB_MEM_EEPROM,&UCB0TXBUF
+DUMMY_CONTINUE_VER_LSB:         BIT.B          #008H,&IFG2
+                                JC             DUMMY_WR_OK_LSB_ENV
+                                ; PEGA O PC PARA RETORNO CASO NÃO DE ERRO
+                                MOV.W          PC,R7
+                                JMP            DUMMY_VER_RESP_ACK
+                                JMP            DUMMY_CONTINUE_VER_LSB
+DUMMY_WR_OK_LSB_ENV:            NOP       
+                                ; UCTR = 0, INDICA LEITURA NO RECEPTOR I2C. UCTXSTT = 1, SINAL DE START LIGADO
+                                BIC.B          #UCTR,&UCB0CTL1
+                                BIS.B          #UCTXSTT,&UCB0CTL1
+CONTINUE_LER_START:             BIT.B          #002H,&UCB0CTL1
+                                JC             CONTINUE_LER_START
+                                ; CONFIGURA A CONDIÇÃO DE STOP PARA ENVIAR PARA O RECEPTOR i2C
+                                BIS.B          #UCTXSTP,&UCB0CTL1
+                                MOV.W          PC,R7
+                                JMP            DUMMY_VER_RESP_ACK
+CONTINUE_LER_DADO_BYTE:         BIT.B          #004H,&IFG2
+                                JNC            CONTINUE_LER_DADO_BYTE                                
+                                MOV.B          &UCB0RXBUF,MENSAGEM_EEPROM(R4)
+                                JMP            SUCESSO_LEITURA_DADO
+                                NOP
+DUMMY_VER_RESP_ACK:             CALL           #VERIFICA_ACK
+                                CMP.B          #ACK_ERROR,&STATUS_ACK
+                                JC             LER_ERRO_ACK_
+                                ADD.W          #002H,R7
+                                MOV.W          R7,PC
+LER_ERRO_ACK_:                  NOP
+                                JMP            FINAL_LEITURA_DADO          
+SUCESSO_LEITURA_DADO:           NOP
+FINAL_LEITURA_DADO:             RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+I2C_MEMO_MSB_LSB
+;----------------------------------------------------------------------------------------------
+                                PUSH.W         R4
+                                MOV.W          #I2C_MEMO_ENDERECO,R4
+                                MOV.B          @R4,LSB_MEM_EEPROM
+                                ADD.W          #001H,R4
+                                MOV.B          @R4,MSB_MEM_EEPROM
+                                POP.W          R4
+                                RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+AGUARDE_5MS
+;----------------------------------------------------------------------------------------------
+                                PUSH.W        R12
+                                MOV.W         #00681H,R12
+CT_LOOP:   	                ADD.W         #0FFFFH,R12
+                                JC            CT_LOOP                          
+                                POP.W         R12
+                                RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+        COMMON                  INTVEC
+;----------------------------------------------------------------------------------------------
+        ORG                     RESET_VECTOR
+        DW                      RESET
+        END
+;----------------------------------------------------------------------------------------------
