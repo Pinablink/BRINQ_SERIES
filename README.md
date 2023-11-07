@@ -4,7 +4,7 @@
 
 _____
 
-Brinq Series é um projeto que tem como principal objetivo, disponibilizar soluções em determinadas tecnologias e assuntos. Para que você possa ter uma base de exemplo, baseado em resultados satisfatórios dos testes executados em meu laboratório.
+Brinq Series é um projeto que tem como principal objetivo, disponibilizar soluções em determinadas tecnologias e assuntos. Para que você possa ter uma base de exemplos, baseado em resultados satisfatórios dos testes executados em meu laboratório.
 
 Cada projeto irá ser acompanhado com um artigo ou tutorial elaborado no medium.com para dar suporte a sua pesquisa. 
 
