@@ -197,6 +197,7 @@ INICIALIZAR_I2C
 ;----------------------------------------------------------------------------------------------
 VERIFICA_ACK 
 ;----------------------------------------------------------------------------------------------
+                                CALL           #AGUARDE_RETORNO_RECEPTOR
                                 BIT.B          #008H,&UCB0STAT
                                 JNC            TRANSMICAO_OK
                                 ; CONFIGURA A CONDIÇÃO DE STOP PARA ENVIAR PARA O RECEPTOR I2C
@@ -222,7 +223,7 @@ SALVAR_DADO_BYTE
                                 ; ENVIA O START PARA O RECEPTOR I2C
                                 ; UCTR = 1, INDICA ESCRITA NO RECEPTOR I2C. UCTXSTT = 1, SINAL DE START LIGADO
                                 BIS.B          #UCTR+UCTXSTT,&UCB0CTL1
-CONTINUE_START:	                BIT.B          #002H,&UCB0CTL1
+CONTINUE_START:	                BIT.B          #002H,&UCB0CTL1 ;ORIGINAL
                                 JNC            OK_START
                                 BIT.B          #008H,&IFG2
                                 JNC            CONTINUE_START  
@@ -237,7 +238,7 @@ CONTINUE_VER_MSB:               BIT.B          #008H,&IFG2
                                 MOV.W          PC,R7
                                 JMP            VER_RESPOSTA_RECEPTOR
                                 JMP            CONTINUE_VER_MSB
-OK_MSB_ENV:                     NOP       
+OK_MSB_ENV:                     NOP      
                                 ; ENVIA O BYTE MENOS SIGNIFICATIVO DO ENDEREÇO DA MEMÓRIA
                                 MOV.B          LSB_MEM_EEPROM,&UCB0TXBUF
 CONTINUE_VER_LSB:               BIT.B          #008H,&IFG2
@@ -246,7 +247,7 @@ CONTINUE_VER_LSB:               BIT.B          #008H,&IFG2
                                 MOV.W          PC,R7
                                 JMP            VER_RESPOSTA_RECEPTOR
                                 JMP            CONTINUE_VER_LSB
-OK_LSB_ENV:                     NOP       
+OK_LSB_ENV:                     NOP      
                                 ; ENVIA OS DADOS PARA O RECEPTOR I2C
                                 MOV.B          R10,&UCB0TXBUF
 CONTINUE_ENVIO:                 BIT.B          #008H,&IFG2
@@ -351,6 +352,18 @@ AGUARDE_5MS
 CT_LOOP:   	                ADD.W         #0FFFFH,R12
                                 JC            CT_LOOP                          
                                 POP.W         R12
+                                RET
+;----------------------------------------------------------------------------------------------
+;----------------------------------------------------------------------------------------------
+AGUARDE_RETORNO_RECEPTOR
+;----------------------------------------------------------------------------------------------
+                                PUSH.W        R13
+                                MOV.W         #00032H,R13
+AGUARDE:                        CMP.W         #00000H,R13
+                                JEQ           FIM_AGUARDE
+                                DEC.W         R13
+                                JMP           AGUARDE
+FIM_AGUARDE:                    POP.W         R13
                                 RET
 ;----------------------------------------------------------------------------------------------
 ;----------------------------------------------------------------------------------------------
