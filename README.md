@@ -29,7 +29,6 @@ https://medium.com/@weberasantos/salvando-e-lendo-bytes-em-uma-eeprom-i2c-a-part
 
 </br>
 </br>
-</br>
 
 ### 💻 msp430g2553/spi_23k640_sram
 _____
@@ -42,7 +41,6 @@ Acesse:
 </br>
 https://medium.com/@weberasantos/gravando-e-lendo-a-mem%C3%B3ria-23k640-com-msp430g2553-d0864034d9f4
 
-</br>
 </br>
 </br>
 
